@@ -1,15 +1,43 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id       Int       @id @default(autoincrement())
+  username String    @unique
+  name     String
+  password String
+  chats    Chat[]    @relation("UserChats")
+  message  message[]
+}
+
+model message {
+  id        Int      @id @default(autoincrement())
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  Int      @map("sender_id")
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  chatId    Int      @map("chat_id")
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+model Chat {
+  id       Int            @id @default(autoincrement())
+  type     String
+  users    User[]         @relation("UserChats")
+  messages message[]
+  info     GroupChatInfo?
+}
+
+model GroupChatInfo {
+  id     Int    @id @default(autoincrement())
+  chat   Chat   @relation(fields: [chatId], references: [id])
+  chatId Int    @unique @map("chat_id")
+  title  String
 }
