@@ -3,10 +3,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { RegistrationDTO } from './register.dto';
 import { find } from 'rxjs';
 import bcrypt from 'bcrypt';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class AuthService {
-    constructor(private readonly prismaService: PrismaService) { }
+    constructor(private readonly prismaService: PrismaService, private readonly redisService: RedisService) { }
 
     async registration(dto: RegistrationDTO) {
         const { username, password } = dto;
@@ -26,7 +27,9 @@ export class AuthService {
                 }
             })
 
+            const userid = await this.UsernameToUserid(username) || -1;
             const sessionId = crypto.randomUUID();
+            this.redisService.set(`sessionid:${sessionId}:userid`, userid.toString(),60*60*24);
             return sessionId;
         }
 
@@ -46,11 +49,25 @@ export class AuthService {
             return false;
         }
         if (await bcrypt.compare(password, hashed_password.password)) {
+            const userid = await this.UsernameToUserid(username) || -1;
             const sessionId = crypto.randomUUID();
+            this.redisService.set(`sessionid:${sessionId}:userid`, userid.toString(),60*60*24);
             return sessionId;
         }
         else {
             return false;
         }
+    }
+
+    async UsernameToUserid(username: string) {
+        const usernameid = await this.prismaService.user.findFirst({
+            where: {
+                username: username
+            },
+            select: {
+                id: true
+            }
+        });
+        return usernameid?.id
     }
 }
