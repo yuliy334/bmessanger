@@ -9,6 +9,12 @@ import { RedisService } from 'src/redis/redis.service';
 export class AuthService {
     constructor(private readonly prismaService: PrismaService, private readonly redisService: RedisService) { }
 
+    async FindSessionId(sessionId:string):Promise<string|Number>{
+        const userFromSession = await this.redisService.get(`sessionid:${sessionId}:userid`);
+
+        return userFromSession ?? -1;
+    }
+
     async registration(dto: RegistrationDTO) {
         const { username, password } = dto;
         if (await this.prismaService.user.findFirst({
