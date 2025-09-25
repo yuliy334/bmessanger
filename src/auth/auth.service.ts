@@ -17,6 +17,8 @@ export class AuthService {
 
     async registration(dto: RegistrationDTO) {
         const { username, password } = dto;
+        console.log(username);
+        console.log(password);
         if (await this.prismaService.user.findFirst({
             where: {
                 username: username,

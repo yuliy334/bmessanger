@@ -14,14 +14,13 @@ export class AuthController {
     if (registrationAnswer != "exist") {
       res.cookie('sessionId', registrationAnswer, {
         httpOnly: true,
-        secure: true,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000
       });
-      res.send({ registrated: true });
+      res.send({ status:"registrated" });
     }
     else {
-      res.status(409).send(registrationAnswer);
+      res.status(409).send({status:"UsernameExist"});
     }
   }
   @Post("login")
@@ -30,14 +29,13 @@ export class AuthController {
     if (sessionId) {
       res.cookie('sessionId', sessionId, {
         httpOnly: true,
-        secure: true,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000
       });
       res.send({ login: true });
     }
     else {
-      res.status(403).send("incorrect username or password");
+      res.status(403).send({login:false});
     }
 
   }
