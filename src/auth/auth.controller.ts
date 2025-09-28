@@ -17,10 +17,10 @@ export class AuthController {
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000
       });
-      res.send({ status:"registrated" });
+      res.send({ status: "registrated" });
     }
     else {
-      res.status(409).send({status:"UsernameExist"});
+      res.status(409).send({ status: "UsernameExist" });
     }
   }
   @Post("login")
@@ -35,16 +35,14 @@ export class AuthController {
       res.send({ login: true });
     }
     else {
-      res.status(403).send({login:false});
+      res.status(403).send({ login: false });
     }
 
   }
   @Get("check")
   async checkSession(@Req() req: Request, @Res() res: Response) {
     const sessionId = req.cookies?.["sessionId"];
-    console.log(sessionId);
     if (!sessionId) {
-      console.log("sdfsdfsdf");
       res.status(401).send({ sessionSuccess: false })
     }
     else {
@@ -52,8 +50,11 @@ export class AuthController {
       if (userfromSessoin == -1) {
         res.status(401).send({ sessionSuccess: false })
       }
+      else {
+        res.send({ sessionSuccess: true });
+      }
 
-      res.send({ sessionSuccess: true });
+
     }
 
   }

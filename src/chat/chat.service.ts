@@ -1,26 +1,66 @@
-import { Injectable } from '@nestjs/common';
-import { CreateChatDto } from './dto/create-chat.dto';
-import { UpdateChatDto } from './dto/update-chat.dto';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { RedisService } from 'src/redis/redis.service';
+import { Socket } from 'socket.io';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { RedisControlService } from 'src/redis/redis-control.service';
+import { PrismaControlService } from 'src/prisma/prisma-control.service';
+import { addPersonalChatAnswer, NewChatResult } from './dto/create-chat.dto';
 
 @Injectable()
 export class ChatService {
-  create(createChatDto: CreateChatDto) {
-    return 'This action adds a new chat';
+  constructor(private readonly redisService: RedisService, private readonly prismaService: PrismaService, private readonly redisControlService: RedisControlService, private readonly prismaControlService: PrismaControlService) { }
+
+  async NewPrivateChat(client: Socket, username: string): Promise<addPersonalChatAnswer | undefined> {
+    const newChatResult: NewChatResult[] = [];
+    const creatingChat = await this.CreatePrivateChat(client, username);
+    if (creatingChat.success) {
+      const userIds = await this.prismaControlService.getUsersInChat(creatingChat.chatId!)
+      for (const userid of userIds) {
+        const socketid = await this.redisControlService.getSocketsFromUserId(userid);
+        if (socketid) {
+          const chat = await this.prismaControlService.getOneChat(creatingChat.chatId!, userid);
+          if (chat) {
+            for (const socket of socketid) {
+              newChatResult.push({ chat: chat, socketid: socket })
+            }
+            return { newChatResult: newChatResult, creatingChatAnswer: creatingChat };
+          }
+
+        }
+      }
+    }
+    else {
+      return { newChatResult: [], creatingChatAnswer: creatingChat }
+    }
+    return { newChatResult: [], creatingChatAnswer: creatingChat }
   }
 
-  findAll() {
-    return `This action returns all chat`;
-  }
+  async CreatePrivateChat(client: Socket, username: string) {
 
-  findOne(id: number) {
-    return `This action returns a #${id} chat`;
-  }
+    const userIdFromPrisma = await this.prismaControlService.get_User_Id_From_Username(username);
+    const userWhoCreated = await this.redisControlService.getIdFromSocket(client);
+    if (!userIdFromPrisma) {
+      return { success: false, error: "UserIsNotExist" };
+    }
 
-  update(id: number, updateChatDto: UpdateChatDto) {
-    return `This action updates a #${id} chat`;
-  }
+    if (userWhoCreated == userIdFromPrisma.id) {
+      return { success: false, error: "SameUser" };
+    }
+    const userId: number = await this.redisControlService.getIdFromSocket(client);
 
-  remove(id: number) {
-    return `This action removes a #${id} chat`;
+    const chat = await this.prismaService.chat.create({
+      data: {
+        type: "private",
+        users: {
+          connect: [{ id: userId }, { id: userIdFromPrisma.id },],
+        }
+      }
+    })
+    if (chat) {
+      return { success: true, chatId: chat.id };
+    }
+    else {
+      return { success: false, error: "errorInCreating" };
+    }
   }
 }

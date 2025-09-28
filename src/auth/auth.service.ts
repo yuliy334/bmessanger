@@ -9,7 +9,7 @@ import { RedisService } from 'src/redis/redis.service';
 export class AuthService {
     constructor(private readonly prismaService: PrismaService, private readonly redisService: RedisService) { }
 
-    async FindSessionId(sessionId:string):Promise<string|Number>{
+    async FindSessionId(sessionId: string): Promise<string | Number> {
         const userFromSession = await this.redisService.get(`sessionid:${sessionId}:userid`);
 
         return userFromSession ?? -1;
@@ -17,8 +17,6 @@ export class AuthService {
 
     async registration(dto: RegistrationDTO) {
         const { username, password } = dto;
-        console.log(username);
-        console.log(password);
         if (await this.prismaService.user.findFirst({
             where: {
                 username: username,
@@ -35,10 +33,7 @@ export class AuthService {
                 }
             })
 
-            const userid = await this.UsernameToUserid(username) || -1;
-            const sessionId = crypto.randomUUID();
-            this.redisService.set(`sessionid:${sessionId}:userid`, userid.toString(),60*60*24);
-            return sessionId;
+            return this.CreateSessionId(username);
         }
 
     }
@@ -57,10 +52,7 @@ export class AuthService {
             return false;
         }
         if (await bcrypt.compare(password, hashed_password.password)) {
-            const userid = await this.UsernameToUserid(username) || -1;
-            const sessionId = crypto.randomUUID();
-            this.redisService.set(`sessionid:${sessionId}:userid`, userid.toString(),60*60*24);
-            return sessionId;
+            return this.CreateSessionId(username);
         }
         else {
             return false;
@@ -77,5 +69,12 @@ export class AuthService {
             }
         });
         return usernameid?.id
+    }
+    async CreateSessionId(username) {
+        const userid = await this.UsernameToUserid(username) || -1;
+        const sessionId = crypto.randomUUID();
+        this.redisService.set(`sessionid:${sessionId}:userid`, userid.toString(), 60 * 60 * 24);
+        this.redisService.set(`userid:${userid.toString()}:sessionid`,sessionId,60 * 60 * 24);
+        return sessionId;
     }
 }

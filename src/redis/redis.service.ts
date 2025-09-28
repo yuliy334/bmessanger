@@ -15,10 +15,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     onModuleDestroy() {
         return this.client.quit();
     }
-    async set(key: string, value: string, ttl?:number) {
+    async set(key: string, value: string, ttl?: number) {
         await this.client.set(key, value);
-        if(ttl){
-            await this.client.expire(key,ttl);
+        if (ttl) {
+            await this.client.expire(key, ttl);
         }
     }
     async get(key: string): Promise<string | null> {
@@ -26,5 +26,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
     async del(key: string) {
         return this.client.del(key);
+    }
+    async SADD(key: string, value: string) {
+        await this.client.sadd(key, value);
+    }
+    async SREM(key: string, value: string) {
+        await this.client.srem(key, value);
+    }
+    async SISMEMBER(key: string, value: string) {
+        await this.client.sismember(key, value);
+    }
+    async SMEMBERS(key: string) {
+        return await this.client.smembers(key);
     }
 }

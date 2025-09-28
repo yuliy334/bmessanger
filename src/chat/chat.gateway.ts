@@ -1,50 +1,69 @@
-import { WebSocketGateway, SubscribeMessage, MessageBody, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
+import { WebSocketGateway, SubscribeMessage, MessageBody, OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from '@nestjs/websockets';
 import { ChatService } from './chat.service';
-import { CreateChatDto } from './dto/create-chat.dto';
-import { UpdateChatDto } from './dto/update-chat.dto';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import cookie from 'cookie';
+import { Body } from '@nestjs/common';
+import { addPersonalChatAnswer, CreatePrivateChatDto, NewChatResult } from './dto/create-chat.dto';
+import { subscribe } from 'diagnostics_channel';
+import { RedisControlService } from 'src/redis/redis-control.service';
+import { PrismaControlService } from 'src/prisma/prisma-control.service';
 @WebSocketGateway({
   cors: {
-    origin: 'http://localhost:5173', 
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
     credentials: true,
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private readonly chatService: ChatService) { }
+  constructor(private readonly chatService: ChatService, private readonly redisControlService: RedisControlService, private readonly prismaControlService: PrismaControlService) { }
 
-  handleConnection(client: Socket) {
+  @WebSocketServer()
+  server: Server;
+
+  async handleConnection(client: Socket) {
     const cookies = cookie.parse(client.handshake.headers.cookie || '');
     const sessionId = cookies['sessionId'];
+    try {
+      await this.redisControlService.Create_Socket_User_redis(sessionId, client.id, client);
+    }
+    catch (err) {
+      console.error("Ошибка при привязке сокета:", err);
+    }
+
 
     console.log(sessionId, client.id);
   }
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     console.log(`disconected:${client.id}`);
+    await this.redisControlService.delete_Disconected_Suckets_Redis(client.id);
+
   }
-  @SubscribeMessage('createChat')
-  create(@MessageBody() createChatDto: CreateChatDto) {
-    return this.chatService.create(createChatDto);
+  async handleDisconnecting(client: Socket) {
+    console.log(`disconected:${client.id}`);
+    await this.redisControlService.delete_Disconected_Suckets_Redis(client.id);
+
   }
 
-  @SubscribeMessage('findAllChat')
-  findAll() {
-    return this.chatService.findAll();
+  @SubscribeMessage('deleteSession')
+  async DeleteMessage(client: Socket) {
+    console.log("delete");
+    await this.redisControlService.delete_Session_Redis(client.id);
+    await this.redisControlService.delete_Disconected_Suckets_Redis(client.id);
+    client.disconnect();
   }
 
-  @SubscribeMessage('findOneChat')
-  findOne(@MessageBody() id: number) {
-    return this.chatService.findOne(id);
-  }
+  @SubscribeMessage('addPersonalChat')
+  async AddPersonalChat(client: Socket, data: CreatePrivateChatDto) {
 
-  @SubscribeMessage('updateChat')
-  update(@MessageBody() updateChatDto: UpdateChatDto) {
-    return this.chatService.update(updateChatDto.id, updateChatDto);
+    const addPersonalChatAnswer: addPersonalChatAnswer|undefined = await this.chatService.NewPrivateChat(client, data.username);
+    addPersonalChatAnswer?.newChatResult.map((c) => {
+      this.server.to(c.socketid).emit('newChat', c.chat);
+    })
+    return addPersonalChatAnswer?.creatingChatAnswer;
   }
-
-  @SubscribeMessage('removeChat')
-  remove(@MessageBody() id: number) {
-    return this.chatService.remove(id);
+  @SubscribeMessage("getAllChats")
+  async GetAllChats(client: Socket) {
+    const Chats = await this.prismaControlService.SendAllChats(client);
+    return Chats;
   }
 }
