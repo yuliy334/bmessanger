@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
 import { addPersonalChatAnswer, NewChatResult } from './dto/create-chat.dto';
+import { messageDto } from './dto/message-dto';
 
 @Injectable()
 export class ChatService {
@@ -23,7 +24,7 @@ export class ChatService {
             for (const socket of socketid) {
               newChatResult.push({ chat: chat, socketid: socket })
             }
-            return { newChatResult: newChatResult, creatingChatAnswer: creatingChat };
+
           }
 
         }
@@ -32,19 +33,27 @@ export class ChatService {
     else {
       return { newChatResult: [], creatingChatAnswer: creatingChat }
     }
-    return { newChatResult: [], creatingChatAnswer: creatingChat }
+    return { newChatResult: newChatResult, creatingChatAnswer: creatingChat };
   }
 
   async CreatePrivateChat(client: Socket, username: string) {
 
     const userIdFromPrisma = await this.prismaControlService.get_User_Id_From_Username(username);
     const userWhoCreated = await this.redisControlService.getIdFromSocket(client);
+
+
+
     if (!userIdFromPrisma) {
       return { success: false, error: "UserIsNotExist" };
     }
 
     if (userWhoCreated == userIdFromPrisma.id) {
       return { success: false, error: "SameUser" };
+    }
+
+    const IsChatExist = await this.prismaControlService.IsThisPersonalChatExist(userIdFromPrisma?.id, userWhoCreated)
+    if (IsChatExist) {
+      return { success: false, error: "ChatExist" };
     }
     const userId: number = await this.redisControlService.getIdFromSocket(client);
 
@@ -62,5 +71,17 @@ export class ChatService {
     else {
       return { success: false, error: "errorInCreating" };
     }
+  }
+
+  async CreateMessage(client: Socket, data: messageDto) {
+    const Userid = await this.redisControlService.getIdFromSocket(client);
+    await this.prismaService.message.create({
+      data: {
+        chatId: data.chatId,
+        senderId: Userid,
+        text: data.text
+      }
+
+    });
   }
 }

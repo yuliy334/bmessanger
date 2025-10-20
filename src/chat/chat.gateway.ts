@@ -7,6 +7,8 @@ import { addPersonalChatAnswer, CreatePrivateChatDto, NewChatResult } from './dt
 import { subscribe } from 'diagnostics_channel';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
+import { message } from '@prisma/client';
+import { messageDto } from './dto/message-dto';
 @WebSocketGateway({
   cors: {
     origin: 'http://localhost:5173',
@@ -27,7 +29,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.redisControlService.Create_Socket_User_redis(sessionId, client.id, client);
     }
     catch (err) {
-      console.error("Ошибка при привязке сокета:", err);
+      console.error("error:", err);
     }
 
 
@@ -56,14 +58,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async AddPersonalChat(client: Socket, data: CreatePrivateChatDto) {
 
     const addPersonalChatAnswer: addPersonalChatAnswer|undefined = await this.chatService.NewPrivateChat(client, data.username);
+    console.log(addPersonalChatAnswer);
     addPersonalChatAnswer?.newChatResult.map((c) => {
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
     return addPersonalChatAnswer?.creatingChatAnswer;
   }
+  
   @SubscribeMessage("getAllChats")
   async GetAllChats(client: Socket) {
     const Chats = await this.prismaControlService.SendAllChats(client);
-    return Chats;
+    const Userid= await this.redisControlService.getIdFromSocket(client);
+    const userName = await this.prismaControlService.get_UserName_From_UserId(Userid);
+    return {userName, Chats};
+  }
+
+  @SubscribeMessage("sendMessage")
+  async SendMessage(client:Socket, data:messageDto){
+    await this.chatService.CreateMessage(client,data);
   }
 }

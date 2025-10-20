@@ -3,6 +3,7 @@ import { PrismaService } from './prisma.service';
 import { Socket } from 'socket.io';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaClient } from '@prisma/client/extension';
+import { messageDto } from 'src/chat/dto/message-dto';
 
 @Injectable()
 export class PrismaControlService {
@@ -49,14 +50,25 @@ export class PrismaControlService {
           }
         },
         messages: {
+          select:{
+            text:true,
+            createdAt:true,
+            sender:{
+              select:{
+                username:true
+              }
+            }
+          },
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
         info: true,
       }
     })
+    console.log(Chats[0].messages);
     const formattedChat = Chats.map(chat => {
       let chatName: string | undefined = "";
+      chat.messages = chat.messages.reverse()
       if (chat.type == "private") {
         console.log("private");
         const anotherUser = chat.users.find(user => user.id != userId);
@@ -119,4 +131,24 @@ export class PrismaControlService {
     const userIds = usersInChat?.users.map(u => u.id) || [];
     return userIds;
   }
+  async IsThisPersonalChatExist(userOne:number,userTwo:number):Promise<boolean>{
+    const ifExist = await this.prismaService.user.findFirst({
+      where:{
+        id:userOne
+      },
+      select:{
+        chats:{
+          where:{
+            type:"private",
+            users:{
+              every:{id:{in:[userOne,userTwo]}}
+            }
+          }
+        }
+      }
+    })
+    console.log(ifExist);
+    return ifExist?.chats.length!=0?true:false;
+  }
+
 }
