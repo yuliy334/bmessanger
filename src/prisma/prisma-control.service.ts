@@ -7,10 +7,10 @@ import { messageDto } from 'src/chat/dto/message-dto';
 
 @Injectable()
 export class PrismaControlService {
-    constructor(private readonly prismaService:PrismaService, private readonly redisControlService:RedisControlService){
-    }
+  constructor(private readonly prismaService: PrismaService, private readonly redisControlService: RedisControlService) {
+  }
 
-    async get_User_Id_From_Username(username: string) {
+  async get_User_Id_From_Username(username: string) {
     const userId = await this.prismaService.user.findFirst({
       where: {
         username: username
@@ -21,14 +21,14 @@ export class PrismaControlService {
     })
     return userId;
   }
-  async get_UserName_From_UserId(id:number){
+  async get_UserName_From_UserId(id: number) {
     const username = await this.prismaService.user.findFirst({
-        where:{
-            id:id
-        },
-        select:{
-            username:true
-        }
+      where: {
+        id: id
+      },
+      select: {
+        username: true
+      }
     })
     return username;
   }
@@ -50,12 +50,12 @@ export class PrismaControlService {
           }
         },
         messages: {
-          select:{
-            text:true,
-            createdAt:true,
-            sender:{
-              select:{
-                username:true
+          select: {
+            text: true,
+            createdAt: true,
+            sender: {
+              select: {
+                username: true
               }
             }
           },
@@ -65,7 +65,6 @@ export class PrismaControlService {
         info: true,
       }
     })
-    console.log(Chats[0].messages);
     const formattedChat = Chats.map(chat => {
       let chatName: string | undefined = "";
       chat.messages = chat.messages.reverse()
@@ -131,24 +130,40 @@ export class PrismaControlService {
     const userIds = usersInChat?.users.map(u => u.id) || [];
     return userIds;
   }
-  async IsThisPersonalChatExist(userOne:number,userTwo:number):Promise<boolean>{
+  async IsThisPersonalChatExist(userOne: number, userTwo: number): Promise<boolean> {
     const ifExist = await this.prismaService.user.findFirst({
-      where:{
-        id:userOne
+      where: {
+        id: userOne
       },
-      select:{
-        chats:{
-          where:{
-            type:"private",
-            users:{
-              every:{id:{in:[userOne,userTwo]}}
+      select: {
+        chats: {
+          where: {
+            type: "private",
+            users: {
+              every: { id: { in: [userOne, userTwo] } }
             }
           }
         }
       }
     })
     console.log(ifExist);
-    return ifExist?.chats.length!=0?true:false;
+    return ifExist?.chats.length != 0 ? true : false;
+  }
+
+  async IsUserInChatFunc(userId: number, chatId: number) {
+    const IsUserInChat = await this.prismaService.chat.findFirst({
+      where: {
+        id: chatId
+      },
+      select: {
+        users: {
+          where: {
+            id: userId
+          }
+        }
+      }
+    })
+    return IsUserInChat;
   }
 
 }

@@ -2,13 +2,14 @@ import { WebSocketGateway, SubscribeMessage, MessageBody, OnGatewayConnection, O
 import { ChatService } from './chat.service';
 import { Server, Socket } from 'socket.io';
 import cookie from 'cookie';
-import { Body } from '@nestjs/common';
+import { Body, UseGuards } from '@nestjs/common';
 import { addPersonalChatAnswer, CreatePrivateChatDto, NewChatResult } from './dto/create-chat.dto';
 import { subscribe } from 'diagnostics_channel';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
 import { message } from '@prisma/client';
 import { messageDto } from './dto/message-dto';
+import { sendMessageGuard } from './guard/sendMessageGuard';
 @WebSocketGateway({
   cors: {
     origin: 'http://localhost:5173',
@@ -57,24 +58,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('addPersonalChat')
   async AddPersonalChat(client: Socket, data: CreatePrivateChatDto) {
 
-    const addPersonalChatAnswer: addPersonalChatAnswer|undefined = await this.chatService.NewPrivateChat(client, data.username);
+    const addPersonalChatAnswer: addPersonalChatAnswer | undefined = await this.chatService.NewPrivateChat(client, data.username);
     console.log(addPersonalChatAnswer);
     addPersonalChatAnswer?.newChatResult.map((c) => {
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
     return addPersonalChatAnswer?.creatingChatAnswer;
   }
-  
+
   @SubscribeMessage("getAllChats")
   async GetAllChats(client: Socket) {
     const Chats = await this.prismaControlService.SendAllChats(client);
-    const Userid= await this.redisControlService.getIdFromSocket(client);
+    const Userid = await this.redisControlService.getIdFromSocket(client);
     const userName = await this.prismaControlService.get_UserName_From_UserId(Userid);
-    return {userName, Chats};
+    return { userName, Chats };
   }
 
+
   @SubscribeMessage("sendMessage")
-  async SendMessage(client:Socket, data:messageDto){
-    await this.chatService.CreateMessage(client,data);
+  @UseGuards(sendMessageGuard)
+  async SendMessage(client: Socket, data: messageDto) {
+    await this.chatService.CreateMessage(client, data);
   }
 }
