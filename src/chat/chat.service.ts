@@ -75,7 +75,7 @@ export class ChatService {
 
   async CreateMessage(client: Socket, data: messageDto) {
     const Userid = await this.redisControlService.getIdFromSocket(client);
-    await this.prismaService.message.create({
+    const NewMessage = await this.prismaService.message.create({
       data: {
         chatId: data.chatId,
         senderId: Userid,
@@ -83,5 +83,9 @@ export class ChatService {
       }
 
     });
+    const username = await this.prismaControlService.get_UserName_From_UserId(Userid);
+    // console.log("newMessage: ",NewMessage);
+    const newSendBackMessage = { text: data.text, senderName: username?.username, createdAt: NewMessage.createdAt };
+    return newSendBackMessage;
   }
 }

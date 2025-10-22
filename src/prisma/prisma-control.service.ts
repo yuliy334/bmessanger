@@ -64,12 +64,12 @@ export class PrismaControlService {
         },
         info: true,
       }
+
     })
     const formattedChat = Chats.map(chat => {
       let chatName: string | undefined = "";
       chat.messages = chat.messages.reverse()
       if (chat.type == "private") {
-        console.log("private");
         const anotherUser = chat.users.find(user => user.id != userId);
         chatName = anotherUser?.username;
       }
@@ -77,8 +77,15 @@ export class PrismaControlService {
         chatName = chat.info?.title ?? "";
       }
 
+      const messages = chat.messages.map((message) => ({
+        senderName: message.sender.username,
+        text: message.text,
+        chatId: chat.id,
+        createdAt: message.createdAt
+      }));
+
       return {
-        ...chat, chatName: chatName, users: chat.users.map(user => ({ username: user.username }))
+        chatName, id: chat.id, type: chat.type, messages, users: chat.users.map(u => ({ username: u.username }))
       }
     })
 
@@ -99,6 +106,15 @@ export class PrismaControlService {
           }
         },
         messages: {
+          select: {
+            text: true,
+            createdAt: true,
+            sender: {
+              select: {
+                username: true
+              }
+            }
+          },
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
@@ -109,7 +125,16 @@ export class PrismaControlService {
       const chatName = chat.type == "private"
         ? chat.users.find(user => user.id !== userid)?.username ?? ""
         : chat.info?.title ?? "";
-      return { chatName, ...chat };
+
+      const messages = chat.messages.map((message) => ({
+        senderName: message.sender.username,
+        text: message.text,
+        chatId: chat.id,
+        createdAt: message.createdAt
+      }));
+
+
+      return { chatName, id: chat.id, type: chat.type, messages, users: chat.users.map(u => ({ username: u.username })) };
     }
 
 
@@ -146,7 +171,7 @@ export class PrismaControlService {
         }
       }
     })
-    console.log(ifExist);
+    // console.log(ifExist);
     return ifExist?.chats.length != 0 ? true : false;
   }
 

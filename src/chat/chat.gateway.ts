@@ -59,7 +59,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async AddPersonalChat(client: Socket, data: CreatePrivateChatDto) {
 
     const addPersonalChatAnswer: addPersonalChatAnswer | undefined = await this.chatService.NewPrivateChat(client, data.username);
-    console.log(addPersonalChatAnswer);
     addPersonalChatAnswer?.newChatResult.map((c) => {
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
@@ -68,16 +67,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage("getAllChats")
   async GetAllChats(client: Socket) {
-    const Chats = await this.prismaControlService.SendAllChats(client);
+    const chats = await this.prismaControlService.SendAllChats(client);
     const Userid = await this.redisControlService.getIdFromSocket(client);
     const userName = await this.prismaControlService.get_UserName_From_UserId(Userid);
-    return { userName, Chats };
+    const username = userName?.username;
+    return { username, chats };
   }
 
 
   @SubscribeMessage("sendMessage")
   @UseGuards(sendMessageGuard)
   async SendMessage(client: Socket, data: messageDto) {
-    await this.chatService.CreateMessage(client, data);
+    const newSendBackMessage = await this.chatService.CreateMessage(client, data);
+    return newSendBackMessage;
   }
 }
