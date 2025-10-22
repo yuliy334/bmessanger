@@ -85,7 +85,7 @@ export class ChatService {
     });
     const username = await this.prismaControlService.get_UserName_From_UserId(Userid);
     // console.log("newMessage: ",NewMessage);
-    const newSendBackMessage = { text: data.text, senderName: username?.username, createdAt: NewMessage.createdAt };
+    const newSendBackMessage = { text: data.text, senderName: username?.username,chatId:data.chatId, createdAt: NewMessage.createdAt };
     return newSendBackMessage;
   }
 }
