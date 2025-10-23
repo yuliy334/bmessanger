@@ -3,7 +3,7 @@ import { ChatService } from './chat.service';
 import { Server, Socket } from 'socket.io';
 import cookie from 'cookie';
 import { Body, UseGuards } from '@nestjs/common';
-import { addPersonalChatAnswer, CreatePrivateChatDto, NewChatResult } from './dto/create-chat.dto';
+import { addPersonalChatAnswer, CreateGroupChatDto, CreateOnePersonChatDto, NewChatResult } from './dto/create-chat.dto';
 import { subscribe } from 'diagnostics_channel';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
@@ -11,6 +11,7 @@ import { message } from '@prisma/client';
 import { NewMessageDto } from './dto/message-dto';
 import { sendMessageGuard } from './guard/sendMessageGuard';
 import { messageDto } from './dto/ChatsInfoDto';
+import { error, group } from 'console';
 @WebSocketGateway({
   cors: {
     origin: 'http://localhost:5173',
@@ -57,13 +58,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('addPersonalChat')
-  async AddPersonalChat(client: Socket, data: CreatePrivateChatDto) {
+  async AddPersonalChat(client: Socket, data: CreateOnePersonChatDto) {
 
     const addPersonalChatAnswer: addPersonalChatAnswer | undefined = await this.chatService.NewPrivateChat(client, data.username);
     addPersonalChatAnswer?.newChatResult.map((c) => {
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
     return addPersonalChatAnswer?.creatingChatAnswer;
+  }
+  @SubscribeMessage('addGroupChat')
+  async AddGroupChat(client:Socket, data:CreateGroupChatDto){
+    console.log(data);
+    const AddGroupChatInfo = await this.chatService.AddGroupChat(client,data); 
+    console.log(AddGroupChatInfo);
+    if(!AddGroupChatInfo.AddGroupAnswer.success){
+      return AddGroupChatInfo.AddGroupAnswer;
+    }
+    AddGroupChatInfo.AllIdsSockets?.map((socket)=>{
+      this.server.to(socket).emit('newChat',AddGroupChatInfo.chat);
+    })
+    return AddGroupChatInfo.AddGroupAnswer;
+
+  }
+  @SubscribeMessage('IsUserExist')
+  async IsUserExistMessage(client:Socket, data:CreateOnePersonChatDto){
+    console.log("sdfsdf",data.username);
+    const IsUserExist = await this.chatService.IsUserExistFunc(data.username)
+    return IsUserExist;
   }
 
   @SubscribeMessage("getAllChats")

@@ -4,6 +4,7 @@ import { Socket } from 'socket.io';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaClient } from '@prisma/client/extension';
 import { NewMessageDto } from 'src/chat/dto/message-dto';
+import { CreateGroupChatDto, creatingChatAnswer } from 'src/chat/dto/create-chat.dto';
 
 @Injectable()
 export class PrismaControlService {
@@ -91,7 +92,7 @@ export class PrismaControlService {
 
     return formattedChat ?? {};
   }
-  async getOneChat(chatid: number, userid: number) {
+  async getOneChat(chatid: number, userid?: number) {
     const chat = await this.prismaService.chat.findFirst({
       where: {
         id: chatid
@@ -189,6 +190,27 @@ export class PrismaControlService {
       }
     })
     return IsUserInChat;
+  }
+  async CreateGroupChat(ids:number[], title:string):Promise<creatingChatAnswer> {
+    const chat = await this.prismaService.chat.create({
+      data: {
+        type: "group",
+        users: {
+          connect: ids.map((id) => ({ id })),
+        },
+        info: {
+          create: {
+            title:title,
+
+          }
+        }
+      }
+    })
+    console.log(chat);
+    if(chat){
+      return {success:true, chatId:chat.id};
+    }
+    return {success:false, error:"unexepted error"};
   }
 
 }

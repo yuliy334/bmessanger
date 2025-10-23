@@ -4,9 +4,12 @@ import { Socket } from 'socket.io';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
-import { addPersonalChatAnswer, NewChatResult } from './dto/create-chat.dto';
+import { addPersonalChatAnswer, CreateGroupChatDto, creatingChatAnswer, NewChatResult, UserExistAnswer } from './dto/create-chat.dto';
 import { NewMessageDto } from './dto/message-dto';
 import { messageDto } from './dto/ChatsInfoDto';
+import { BlobOptions } from 'buffer';
+import { error, time } from 'console';
+import { title } from 'process';
 
 @Injectable()
 export class ChatService {
@@ -115,4 +118,56 @@ export class ChatService {
     const formattedChat = [...sortedChat, ...chatWithoutMessages];
     return { username, chats: formattedChat };
   }
+
+
+  async IsUserExistFunc(username: string): Promise<UserExistAnswer> {
+    console.log(username);
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        username: username,
+      }
+    })
+    if (user) {
+      return { IsExist: true }
+    }
+    return { IsExist: false, error: "the user does not exist" };
+  }
+
+  async AddGroupChat(client: Socket, data: CreateGroupChatDto) {
+    let idsOfUsers: number[] = [];
+    console.log(data.title);
+    console.log(data);
+    if (!data.title) {
+      const AddGroupAnswer: creatingChatAnswer = { success: false, error: `title does not exist` };
+      return { AddGroupAnswer }
+    }
+    for (const user of data.users) {
+      const id = await this.prismaControlService.get_User_Id_From_Username(user);
+      if (!id) {
+        const AddGroupAnswer: creatingChatAnswer = { success: false, error: `User ${user} does not exist` };
+        return { AddGroupAnswer }
+      }
+      idsOfUsers.push(id.id);
+    }
+    let AllIdsSockets: string[] = [];
+    const userId = await this.redisControlService.getIdFromSocket(client);
+    idsOfUsers.push(userId);
+
+    const usersSuckets = idsOfUsers.map(async (id) => {
+      const idSockets = await this.redisControlService.getSocketsFromUserId(id);
+      AllIdsSockets.push(...idSockets);
+    })
+    console.log(AllIdsSockets);
+    const AddGroupAnswer = await this.prismaControlService.CreateGroupChat(idsOfUsers, data.title);
+    if (AddGroupAnswer.chatId) {
+      const chat = await this.prismaControlService.getOneChat(AddGroupAnswer.chatId);
+      return { AddGroupAnswer, AllIdsSockets, chat };
+    }
+    else {
+      return { AddGroupAnswer };
+    }
+
+
+  }
+
 }
