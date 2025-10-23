@@ -61,6 +61,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async AddPersonalChat(client: Socket, data: CreateOnePersonChatDto) {
 
     const addPersonalChatAnswer: addPersonalChatAnswer | undefined = await this.chatService.NewPrivateChat(client, data.username);
+    if(!addPersonalChatAnswer?.creatingChatAnswer.success){
+      return addPersonalChatAnswer?.creatingChatAnswer;
+    }
     addPersonalChatAnswer?.newChatResult.map((c) => {
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
