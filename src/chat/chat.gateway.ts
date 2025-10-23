@@ -67,11 +67,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage("getAllChats")
   async GetAllChats(client: Socket) {
-    const chats = await this.prismaControlService.SendAllChats(client);
-    const Userid = await this.redisControlService.getIdFromSocket(client);
-    const userName = await this.prismaControlService.get_UserName_From_UserId(Userid);
-    const username = userName?.username;
-    return { username, chats };
+    const Info = await this.chatService.GetAllChats(client);
+    return { ...Info };
   }
 
 

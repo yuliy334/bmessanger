@@ -85,7 +85,24 @@ export class ChatService {
     });
     const username = await this.prismaControlService.get_UserName_From_UserId(Userid);
     // console.log("newMessage: ",NewMessage);
-    const newSendBackMessage = { text: data.text, senderName: username?.username,chatId:data.chatId, createdAt: NewMessage.createdAt };
+    const newSendBackMessage = { text: data.text, senderName: username?.username, chatId: data.chatId, createdAt: NewMessage.createdAt };
     return newSendBackMessage;
+  }
+
+  async GetAllChats(client: Socket) {
+    const chats = await this.prismaControlService.SendAllChats(client);
+
+    const chatWithMessages = chats.filter((chat)=>chat.messages.length>0);
+    const chatWithoutMessages = chats.filter((chat)=>chat.messages.length == 0);
+
+    const sortedChat = chatWithMessages.sort((first,second)=>new Date(second.messages.at(-1)!.createdAt).getTime() - new Date(first.messages.at(-1)!.createdAt).getTime());
+
+
+    const Userid = await this.redisControlService.getIdFromSocket(client);
+    const userName = await this.prismaControlService.get_UserName_From_UserId(Userid);
+    const username = userName?.username;
+
+    const formattedChat =[...sortedChat, ...chatWithoutMessages];
+    return {username, chats: formattedChat};
   }
 }
