@@ -8,8 +8,9 @@ import { subscribe } from 'diagnostics_channel';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
 import { message } from '@prisma/client';
-import { messageDto } from './dto/message-dto';
+import { NewMessageDto } from './dto/message-dto';
 import { sendMessageGuard } from './guard/sendMessageGuard';
+import { messageDto } from './dto/ChatsInfoDto';
 @WebSocketGateway({
   cors: {
     origin: 'http://localhost:5173',
@@ -74,8 +75,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage("sendMessage")
   @UseGuards(sendMessageGuard)
-  async SendMessage(client: Socket, data: messageDto) {
+  async SendMessage(client: Socket, data: NewMessageDto) {
     const newSendBackMessage = await this.chatService.CreateMessage(client, data);
-    return newSendBackMessage;
+    for(const socket of newSendBackMessage.listOfSockets){
+      this.server.to(socket).emit("newRecivedMessage",newSendBackMessage.newMessage)
+    }
+    return newSendBackMessage.newMessage;
   }
 }

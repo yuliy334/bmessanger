@@ -5,7 +5,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
 import { addPersonalChatAnswer, NewChatResult } from './dto/create-chat.dto';
-import { messageDto } from './dto/message-dto';
+import { NewMessageDto } from './dto/message-dto';
+import { messageDto } from './dto/ChatsInfoDto';
 
 @Injectable()
 export class ChatService {
@@ -73,7 +74,7 @@ export class ChatService {
     }
   }
 
-  async CreateMessage(client: Socket, data: messageDto) {
+  async CreateMessage(client: Socket, data: NewMessageDto) {
     const Userid = await this.redisControlService.getIdFromSocket(client);
     const NewMessage = await this.prismaService.message.create({
       data: {
@@ -83,26 +84,35 @@ export class ChatService {
       }
 
     });
+    let usersInChat: number[] = await this.prismaControlService.getUsersInChat(data.chatId);
+    usersInChat = usersInChat.filter((user) => user != Userid);
+    let usersInChatSockets: string[] = [];
+    for (const user of usersInChat) {
+      const SocketsOfUser = await this.redisControlService.getSocketsFromUserId(user);
+      for (const socket of SocketsOfUser) {
+        usersInChatSockets.push(socket);
+      }
+    }
+
     const username = await this.prismaControlService.get_UserName_From_UserId(Userid);
-    // console.log("newMessage: ",NewMessage);
-    const newSendBackMessage = { text: data.text, senderName: username?.username, chatId: data.chatId, createdAt: NewMessage.createdAt };
-    return newSendBackMessage;
+    const newSendBackMessage = { text: data.text, senderName: username!.username, chatId: data.chatId, createdAt: NewMessage.createdAt };
+    return { newMessage: newSendBackMessage, listOfSockets: usersInChatSockets };
   }
 
   async GetAllChats(client: Socket) {
     const chats = await this.prismaControlService.SendAllChats(client);
 
-    const chatWithMessages = chats.filter((chat)=>chat.messages.length>0);
-    const chatWithoutMessages = chats.filter((chat)=>chat.messages.length == 0);
+    const chatWithMessages = chats.filter((chat) => chat.messages.length > 0);
+    const chatWithoutMessages = chats.filter((chat) => chat.messages.length == 0);
 
-    const sortedChat = chatWithMessages.sort((first,second)=>new Date(second.messages.at(-1)!.createdAt).getTime() - new Date(first.messages.at(-1)!.createdAt).getTime());
+    const sortedChat = chatWithMessages.sort((first, second) => new Date(second.messages.at(-1)!.createdAt).getTime() - new Date(first.messages.at(-1)!.createdAt).getTime());
 
 
     const Userid = await this.redisControlService.getIdFromSocket(client);
     const userName = await this.prismaControlService.get_UserName_From_UserId(Userid);
     const username = userName?.username;
 
-    const formattedChat =[...sortedChat, ...chatWithoutMessages];
-    return {username, chats: formattedChat};
+    const formattedChat = [...sortedChat, ...chatWithoutMessages];
+    return { username, chats: formattedChat };
   }
 }

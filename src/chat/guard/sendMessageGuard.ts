@@ -3,7 +3,7 @@ import { Observable } from "rxjs";
 import { Socket } from "socket.io";
 import { PrismaControlService } from "src/prisma/prisma-control.service";
 import { RedisControlService } from "src/redis/redis-control.service";
-import { messageDto } from "../dto/message-dto";
+import { NewMessageDto } from "../dto/message-dto";
 
 @Injectable()
 export class sendMessageGuard implements CanActivate {
@@ -11,7 +11,7 @@ export class sendMessageGuard implements CanActivate {
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const client: Socket = context.switchToWs().getClient();
-        const data:messageDto = context.switchToWs().getData();
+        const data:NewMessageDto = context.switchToWs().getData();
 
         const userid = await this.redisServise.getIdFromSocket(client);
 

@@ -3,7 +3,7 @@ import { PrismaService } from './prisma.service';
 import { Socket } from 'socket.io';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaClient } from '@prisma/client/extension';
-import { messageDto } from 'src/chat/dto/message-dto';
+import { NewMessageDto } from 'src/chat/dto/message-dto';
 
 @Injectable()
 export class PrismaControlService {
