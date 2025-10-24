@@ -4,7 +4,7 @@ import { Socket } from 'socket.io';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaClient } from '@prisma/client/extension';
 import { NewMessageDto } from 'src/chat/dto/message-dto';
-import { CreateGroupChatDto, creatingChatAnswer } from 'src/chat/dto/create-chat.dto';
+import { CreateGroupChatDto, creatingChatAnswer } from 'src/chat/dto/chat-work.dto';
 
 @Injectable()
 export class PrismaControlService {
@@ -61,7 +61,6 @@ export class PrismaControlService {
             }
           },
           orderBy: { createdAt: 'desc' },
-          take: 20,
         },
         info: true,
       }
@@ -117,7 +116,6 @@ export class PrismaControlService {
             }
           },
           orderBy: { createdAt: 'desc' },
-          take: 20,
         },
         info: true,
       }
@@ -140,10 +138,11 @@ export class PrismaControlService {
 
 
   }
-  async getUsersInChat(chatid: number) {
+  async getUsersIdsInChat(chatId) {
+    console.log("dcfsdfdf", chatId);
     const usersInChat = await this.prismaService.chat.findFirst({
       where: {
-        id: chatid
+        id: chatId.chatId
       },
       select: {
         users: {
@@ -191,7 +190,7 @@ export class PrismaControlService {
     })
     return IsUserInChat;
   }
-  async CreateGroupChat(ids:number[], title:string):Promise<creatingChatAnswer> {
+  async CreateGroupChat(ids: number[], title: string): Promise<creatingChatAnswer> {
     const chat = await this.prismaService.chat.create({
       data: {
         type: "group",
@@ -200,17 +199,38 @@ export class PrismaControlService {
         },
         info: {
           create: {
-            title:title,
+            title: title,
 
           }
         }
       }
     })
     console.log(chat);
-    if(chat){
-      return {success:true, chatId:chat.id};
+    if (chat) {
+      return { success: true, chatId: chat.id };
     }
-    return {success:false, error:"unexepted error"};
+    return { success: false, error: "unexepted error" };
+  }
+  async AddUserToChat(chatId: number, userId: number) {
+    await this.prismaService.chat.update({
+      where: { id: chatId },
+      data: {
+        users: {
+          connect: { id: userId },
+        },
+      },
+    });
+  }
+  async DeleteUserFromChat(userId: number, chatId: number) {
+    await this.prismaService.chat.update({
+      where: { id: chatId },
+      data: {
+        users: {
+          disconnect: { id: userId },
+        },
+      },
+    });
+
   }
 
 }

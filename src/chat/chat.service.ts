@@ -1,10 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { Socket } from 'socket.io';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisControlService } from 'src/redis/redis-control.service';
 import { PrismaControlService } from 'src/prisma/prisma-control.service';
-import { addPersonalChatAnswer, CreateGroupChatDto, creatingChatAnswer, NewChatResult, UserExistAnswer } from './dto/create-chat.dto';
+import { addPersonalChatAnswer, AddUserServiceAnswer, CreateGroupChatDto, creatingChatAnswer, DeleteUserServiceAnswer, NewChatResult, UserExistAnswer } from './dto/chat-work.dto';
 import { NewMessageDto } from './dto/message-dto';
 import { messageDto } from './dto/ChatsInfoDto';
 import { BlobOptions } from 'buffer';
@@ -19,7 +19,7 @@ export class ChatService {
     const newChatResult: NewChatResult[] = [];
     const creatingChat = await this.CreatePrivateChat(client, username);
     if (creatingChat.success) {
-      const userIds = await this.prismaControlService.getUsersInChat(creatingChat.chatId!)
+      const userIds = await this.prismaControlService.getUsersIdsInChat(creatingChat.chatId!)
       for (const userid of userIds) {
         const socketid = await this.redisControlService.getSocketsFromUserId(userid);
         if (socketid) {
@@ -87,7 +87,7 @@ export class ChatService {
       }
 
     });
-    let usersInChat: number[] = await this.prismaControlService.getUsersInChat(data.chatId);
+    let usersInChat: number[] = await this.prismaControlService.getUsersIdsInChat(data.chatId);
     usersInChat = usersInChat.filter((user) => user != Userid);
     let usersInChatSockets: string[] = [];
     for (const user of usersInChat) {
@@ -121,7 +121,6 @@ export class ChatService {
 
 
   async IsUserExistFunc(username: string): Promise<UserExistAnswer> {
-    console.log(username);
     const user = await this.prismaService.user.findFirst({
       where: {
         username: username,
@@ -135,8 +134,6 @@ export class ChatService {
 
   async AddGroupChat(client: Socket, data: CreateGroupChatDto) {
     let idsOfUsers: number[] = [];
-    console.log(data.title);
-    console.log(data);
     if (!data.title) {
       const AddGroupAnswer: creatingChatAnswer = { success: false, error: `title does not exist` };
       return { AddGroupAnswer }
@@ -157,7 +154,6 @@ export class ChatService {
       const idSockets = await this.redisControlService.getSocketsFromUserId(id);
       AllIdsSockets.push(...idSockets);
     })
-    console.log(AllIdsSockets);
     const AddGroupAnswer = await this.prismaControlService.CreateGroupChat(idsOfUsers, data.title);
     if (AddGroupAnswer.chatId) {
       const chat = await this.prismaControlService.getOneChat(AddGroupAnswer.chatId);
@@ -167,6 +163,70 @@ export class ChatService {
       return { AddGroupAnswer };
     }
 
+
+  }
+  async AddUserToChat(client: Socket, chatId: number, username: string): Promise<AddUserServiceAnswer> {
+    if (!await this.prismaControlService.getOneChat(chatId)) {
+      throw new NotFoundException('Chat does not exist');
+    }
+    const AddedUserId = await this.prismaControlService.get_User_Id_From_Username(username);
+    if (!AddedUserId) {
+      throw new NotFoundException('User does not exist');
+    }
+    const IsUserInChat = await this.prismaControlService.IsUserInChatFunc(AddedUserId.id, chatId);
+    if (IsUserInChat && IsUserInChat?.users.length > 0) {
+      throw new NotFoundException('User alredy in chat');
+    }
+    await this.prismaControlService.AddUserToChat(chatId, AddedUserId.id);
+    const chat = await this.prismaControlService.getOneChat(chatId);
+    let UsersFromChatId = await Promise.all((chat?.users ?? []).map(async (user) => {
+      if (user.username == username) {
+        return;
+      }
+      return (await this.prismaControlService.get_User_Id_From_Username(user.username))?.id;
+    }));
+
+
+    const socketsOfAddedUser = await this.redisControlService.getSocketsFromUserId(AddedUserId.id);
+    const socketsOfUsers: string[] = [];
+
+    if (!UsersFromChatId) {
+      UsersFromChatId = [];
+    }
+
+    for (const id of UsersFromChatId) {
+      if (id) {
+        const socketFromId = await this.redisControlService.getSocketsFromUserId(id);
+        socketsOfUsers.push(...socketFromId);
+      }
+
+    }
+    if (!chat) {
+      throw new NotFoundException('Chat does not exist');
+    }
+    return { success: true, chat: chat, socketsOfAddedUser, socketsOfUsers };
+
+  }
+
+
+
+
+  async DeleteUserFromChat(client: Socket, chatId: number): Promise<DeleteUserServiceAnswer> {
+    const userId = await this.redisControlService.getIdFromSocket(client);
+    const username = await this.prismaControlService.get_UserName_From_UserId(userId);
+    const DeleteduserSockets = await this.redisControlService.getSocketsFromUserId(userId);
+    await this.prismaControlService.DeleteUserFromChat(userId, chatId);
+    const UsersFromChatId = await this.prismaControlService.getUsersIdsInChat(chatId);
+    const socketsOfUsers: string[] = [];
+    for (const id of UsersFromChatId) {
+      if (id) {
+        const socketFromId = await this.redisControlService.getSocketsFromUserId(id);
+        socketsOfUsers.push(...socketFromId);
+      }
+
+    }
+
+    return { success: true, chatId: chatId, username: username?.username, socketsOfDeletedUser: DeleteduserSockets, socketsOfUsers }
 
   }
 
