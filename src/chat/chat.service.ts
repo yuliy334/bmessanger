@@ -22,7 +22,7 @@ export class ChatService {
 
     if (creatingChat.success) {
 
-      const userIds = await this.prismaControlService.getUsersIdsInChat({chatId:creatingChat.chatId})
+      const userIds = await this.prismaControlService.getUsersIdsInChat({ chatId: creatingChat.chatId })
 
       for (const userid of userIds) {
         const socketid = await this.redisControlService.getSocketsFromUserId(userid);
@@ -86,9 +86,7 @@ export class ChatService {
   }
 
   async CreateMessage(client: Socket, data: NewMessageDto) {
-    console.log("message1");
     const Userid = await this.redisControlService.getIdFromSocket(client);
-    console.log("message2");
     const NewMessage = await this.prismaService.message.create({
       data: {
         chatId: data.chatId,
@@ -97,18 +95,14 @@ export class ChatService {
       }
 
     });
-    console.log("message3");
-    let usersInChat: number[] = await this.prismaControlService.getUsersIdsInChat({chatId: data.chatId});
-    console.log("message4 ",usersInChat);
+    let usersInChat: number[] = await this.prismaControlService.getUsersIdsInChat({ chatId: data.chatId });
+
     usersInChat = usersInChat.filter((user) => user != Userid);
     console.log(usersInChat);
     let usersInChatSockets: string[] = [];
     for (const user of usersInChat) {
-      console.log("message5, ",user);
       const SocketsOfUser = await this.redisControlService.getSocketsFromUserId(user);
-      console.log("yes yrs ",SocketsOfUser);
       for (const socket of SocketsOfUser) {
-        console.log("message6");
         usersInChatSockets.push(socket);
       }
     }
@@ -232,7 +226,9 @@ export class ChatService {
     const username = await this.prismaControlService.get_UserName_From_UserId(userId);
     const DeleteduserSockets = await this.redisControlService.getSocketsFromUserId(userId);
     await this.prismaControlService.DeleteUserFromChat(userId, chatId);
-    const UsersFromChatId = await this.prismaControlService.getUsersIdsInChat(chatId);
+    const UsersFromChatId = await this.prismaControlService.getUsersIdsInChat({ chatId: chatId });
+  
+
     const socketsOfUsers: string[] = [];
     for (const id of UsersFromChatId) {
       if (id) {

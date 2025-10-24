@@ -68,7 +68,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log(c.socketid);
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
-    
+
     return addPersonalChatAnswer?.creatingChatAnswer;
   }
   @SubscribeMessage('addGroupChat')
@@ -101,7 +101,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async SendMessage(client: Socket, data: NewMessageDto) {
     const newSendBackMessage = await this.chatService.CreateMessage(client, data);
     for (const socket of newSendBackMessage.listOfSockets) {
-      console.log("message");
       this.server.to(socket).emit("newRecivedMessage", newSendBackMessage.newMessage)
     }
     return newSendBackMessage.newMessage;
@@ -125,6 +124,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(socket).emit("DeleteChat", data.chatId);
     }
     for (const socket of DeleteUserAnswer.socketsOfUsers) {
+
       this.server.to(socket).emit("DeleteUserFromChat", { chatId: data.chatId, username: DeleteUserAnswer.username });
     }
 
