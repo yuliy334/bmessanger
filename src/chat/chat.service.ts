@@ -17,15 +17,23 @@ export class ChatService {
 
   async NewPrivateChat(client: Socket, username: string): Promise<addPersonalChatAnswer | undefined> {
     const newChatResult: NewChatResult[] = [];
+
     const creatingChat = await this.CreatePrivateChat(client, username);
+
     if (creatingChat.success) {
-      const userIds = await this.prismaControlService.getUsersIdsInChat(creatingChat.chatId!)
+
+      const userIds = await this.prismaControlService.getUsersIdsInChat({chatId:creatingChat.chatId})
+
       for (const userid of userIds) {
         const socketid = await this.redisControlService.getSocketsFromUserId(userid);
+
         if (socketid) {
+
           const chat = await this.prismaControlService.getOneChat(creatingChat.chatId!, userid);
           if (chat) {
+
             for (const socket of socketid) {
+
               newChatResult.push({ chat: chat, socketid: socket })
             }
 
@@ -41,7 +49,7 @@ export class ChatService {
   }
 
   async CreatePrivateChat(client: Socket, username: string) {
-
+    console.log("crrrre");
     const userIdFromPrisma = await this.prismaControlService.get_User_Id_From_Username(username);
     const userWhoCreated = await this.redisControlService.getIdFromSocket(client);
 
@@ -78,7 +86,9 @@ export class ChatService {
   }
 
   async CreateMessage(client: Socket, data: NewMessageDto) {
+    console.log("message1");
     const Userid = await this.redisControlService.getIdFromSocket(client);
+    console.log("message2");
     const NewMessage = await this.prismaService.message.create({
       data: {
         chatId: data.chatId,
@@ -87,12 +97,18 @@ export class ChatService {
       }
 
     });
-    let usersInChat: number[] = await this.prismaControlService.getUsersIdsInChat(data.chatId);
+    console.log("message3");
+    let usersInChat: number[] = await this.prismaControlService.getUsersIdsInChat({chatId: data.chatId});
+    console.log("message4 ",usersInChat);
     usersInChat = usersInChat.filter((user) => user != Userid);
+    console.log(usersInChat);
     let usersInChatSockets: string[] = [];
     for (const user of usersInChat) {
+      console.log("message5, ",user);
       const SocketsOfUser = await this.redisControlService.getSocketsFromUserId(user);
+      console.log("yes yrs ",SocketsOfUser);
       for (const socket of SocketsOfUser) {
+        console.log("message6");
         usersInChatSockets.push(socket);
       }
     }

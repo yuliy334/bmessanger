@@ -139,7 +139,6 @@ export class PrismaControlService {
 
   }
   async getUsersIdsInChat(chatId) {
-    console.log("dcfsdfdf", chatId);
     const usersInChat = await this.prismaService.chat.findFirst({
       where: {
         id: chatId.chatId

@@ -60,26 +60,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('addPersonalChat')
   async AddPersonalChat(client: Socket, data: CreateOnePersonChatDto) {
-
     const addPersonalChatAnswer: addPersonalChatAnswer | undefined = await this.chatService.NewPrivateChat(client, data.username);
     if (!addPersonalChatAnswer?.creatingChatAnswer.success) {
       return addPersonalChatAnswer?.creatingChatAnswer;
     }
     addPersonalChatAnswer?.newChatResult.map((c) => {
+      console.log(c.socketid);
       this.server.to(c.socketid).emit('newChat', c.chat);
     })
+    
     return addPersonalChatAnswer?.creatingChatAnswer;
   }
   @SubscribeMessage('addGroupChat')
   async AddGroupChat(client: Socket, data: CreateGroupChatDto) {
-    console.log(data);
     const AddGroupChatInfo = await this.chatService.AddGroupChat(client, data);
-    console.log(AddGroupChatInfo);
     if (!AddGroupChatInfo.AddGroupAnswer.success) {
       return AddGroupChatInfo.AddGroupAnswer;
     }
     AddGroupChatInfo.AllIdsSockets?.map((socket) => {
-      console.log(AddGroupChatInfo.AllIdsSockets);
       this.server.to(socket).emit('newChat', AddGroupChatInfo.chat);
     })
     return AddGroupChatInfo.AddGroupAnswer;
@@ -87,7 +85,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
   @SubscribeMessage('IsUserExist')
   async IsUserExistMessage(client: Socket, data: CreateOnePersonChatDto) {
-    console.log("sdfsdf", data.username);
     const IsUserExist = await this.chatService.IsUserExistFunc(data.username)
     return IsUserExist;
   }
@@ -104,6 +101,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async SendMessage(client: Socket, data: NewMessageDto) {
     const newSendBackMessage = await this.chatService.CreateMessage(client, data);
     for (const socket of newSendBackMessage.listOfSockets) {
+      console.log("message");
       this.server.to(socket).emit("newRecivedMessage", newSendBackMessage.newMessage)
     }
     return newSendBackMessage.newMessage;
@@ -111,7 +109,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage("addUserToChat")
   async AddUserToChatFunc(client: Socket, data: AddUserDto) {
-    console.log("work getway1, ");
     const AddChatAnswerFromService: AddUserServiceAnswer = await this.chatService.AddUserToChat(client, data.chatId, data.username);
     for (const socket of AddChatAnswerFromService.socketsOfAddedUser) {
       this.server.to(socket).emit("newChat", AddChatAnswerFromService.chat);

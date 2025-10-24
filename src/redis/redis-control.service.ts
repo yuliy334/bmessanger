@@ -11,7 +11,6 @@ export class RedisControlService {
         return userId ?? "-1";
     }
     async getIdFromSocket(client: Socket): Promise<number> {
-        console.log(`${client} in getIdFromSocket`);
         const userId = await this.redisService.get(`socket:${client.id}:userid`);
 
         return userId ? +userId : -1;

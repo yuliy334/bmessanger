@@ -7,7 +7,6 @@ import type { Request } from 'express'
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
-
   @Post("reg")
   async registration(@Body() dto: RegistrationDTO, @Res() res: Response) {
     const registrationAnswer = await this.authService.registration(dto);
